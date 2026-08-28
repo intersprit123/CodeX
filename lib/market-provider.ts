@@ -1,3 +1,5 @@
+import { twelveQuotes } from '@/lib/twelve-data'
+
 export type Quote = { symbol: string; name: string; price: number; changePercent: number; currency: string }
 
 export interface MarketProvider {
@@ -17,7 +19,42 @@ export class DemoMarketProvider implements MarketProvider {
   }
 }
 
+const LIVE_SYMBOLS = [
+  { symbol: 'RELIANCE:NSE', name: 'Reliance Industries', currency: 'INR' },
+  { symbol: 'TCS:NSE', name: 'Tata Consultancy Services', currency: 'INR' },
+  { symbol: 'INFY:NSE', name: 'Infosys', currency: 'INR' },
+  { symbol: 'HDFCBANK:NSE', name: 'HDFC Bank', currency: 'INR' },
+  { symbol: 'ICICIBANK:NSE', name: 'ICICI Bank', currency: 'INR' },
+  { symbol: 'BHARTIARTL:NSE', name: 'Bharti Airtel', currency: 'INR' },
+  { symbol: 'LT:NSE', name: 'Larsen & Toubro', currency: 'INR' },
+  { symbol: 'ITC:NSE', name: 'ITC', currency: 'INR' },
+  { symbol: 'AAPL', name: 'Apple', currency: 'USD' },
+  { symbol: 'MSFT', name: 'Microsoft', currency: 'USD' },
+  { symbol: 'NVDA', name: 'NVIDIA', currency: 'USD' },
+  { symbol: 'AMZN', name: 'Amazon', currency: 'USD' },
+]
+
+export class TwelveDataMarketProvider implements MarketProvider {
+  async quotes(): Promise<Quote[]> {
+    const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
+    const bySymbol = new Map(rows.map(row => [row.symbol.toUpperCase(), row]))
+    return LIVE_SYMBOLS.flatMap(meta => {
+      const row = bySymbol.get(meta.symbol.toUpperCase())
+      if (!row || !row.close) return []
+      return [{
+        symbol: meta.symbol,
+        name: row.name || meta.name,
+        price: Number(row.close),
+        changePercent: Number(row.percent_change || 0),
+        currency: row.currency || meta.currency,
+      }]
+    })
+  }
+}
+
 export function getMarketProvider(): MarketProvider {
-  // Live provider is intentionally not activated yet. This switch is the single future integration point.
+  if (process.env.MARKET_DATA_MODE === 'live' && process.env.TWELVE_DATA_API_KEY) {
+    return new TwelveDataMarketProvider()
+  }
   return new DemoMarketProvider()
 }
