@@ -36,7 +36,9 @@ let liveCache: { quotes: Quote[]; expiresAt: number } | null = null
 let liveRequest: Promise<Quote[]> | null = null
 let debugInitialized = false
 
+// Debug output is server-terminal only and is disabled in production.
 function debug(message: string, details?: Record<string, unknown>) {
+  if (process.env.NODE_ENV !== 'development') return
   console.log(`[MarketOS][MarketData] ${message}${details ? ` ${JSON.stringify(details)}` : ''}`)
 }
 
@@ -99,7 +101,11 @@ export class TwelveDataMarketProvider implements MarketProvider {
         })
         return quotes
       } catch (error) {
-        debug('API REQUEST FAILED', { elapsedMs: Date.now() - started, error: error instanceof Error ? error.message : String(error) })
+        // Never print the API key or raw provider payload.
+        debug('API REQUEST FAILED', {
+          elapsedMs: Date.now() - started,
+          error: error instanceof Error ? error.message : 'Unknown market data error',
+        })
         throw error
       }
     })()
