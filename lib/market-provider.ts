@@ -19,6 +19,8 @@ export class DemoMarketProvider implements MarketProvider {
   }
 }
 
+// Twelve Data's free plan allows 8 API credits per minute.
+// Keep the live dashboard within that limit and refresh at most once per minute.
 const LIVE_SYMBOLS = [
   { symbol: 'RELIANCE:NSE', name: 'Reliance Industries', currency: 'INR' },
   { symbol: 'TCS:NSE', name: 'Tata Consultancy Services', currency: 'INR' },
@@ -28,27 +30,43 @@ const LIVE_SYMBOLS = [
   { symbol: 'BHARTIARTL:NSE', name: 'Bharti Airtel', currency: 'INR' },
   { symbol: 'LT:NSE', name: 'Larsen & Toubro', currency: 'INR' },
   { symbol: 'ITC:NSE', name: 'ITC', currency: 'INR' },
-  { symbol: 'AAPL', name: 'Apple', currency: 'USD' },
-  { symbol: 'MSFT', name: 'Microsoft', currency: 'USD' },
-  { symbol: 'NVDA', name: 'NVIDIA', currency: 'USD' },
-  { symbol: 'AMZN', name: 'Amazon', currency: 'USD' },
 ]
+
+const CACHE_MS = 60_000
+let liveCache: { quotes: Quote[]; expiresAt: number } | null = null
+let liveRequest: Promise<Quote[]> | null = null
 
 export class TwelveDataMarketProvider implements MarketProvider {
   async quotes(): Promise<Quote[]> {
-    const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
-    const bySymbol = new Map(rows.map(row => [row.symbol.toUpperCase(), row]))
-    return LIVE_SYMBOLS.flatMap(meta => {
-      const row = bySymbol.get(meta.symbol.toUpperCase())
-      if (!row || !row.close) return []
-      return [{
-        symbol: meta.symbol,
-        name: row.name || meta.name,
-        price: Number(row.close),
-        changePercent: Number(row.percent_change || 0),
-        currency: row.currency || meta.currency,
-      }]
-    })
+    const now = Date.now()
+    if (liveCache && liveCache.expiresAt > now) return liveCache.quotes
+
+    // Deduplicate simultaneous page/API requests so one refresh costs one API call.
+    if (liveRequest) return liveRequest
+
+    liveRequest = (async () => {
+      const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
+      const bySymbol = new Map(rows.map(row => [row.symbol.toUpperCase(), row]))
+      const quotes = LIVE_SYMBOLS.flatMap(meta => {
+        const row = bySymbol.get(meta.symbol.toUpperCase())
+        if (!row || !row.close) return []
+        return [{
+          symbol: meta.symbol,
+          name: row.name || meta.name,
+          price: Number(row.close),
+          changePercent: Number(row.percent_change || 0),
+          currency: row.currency || meta.currency,
+        }]
+      })
+      liveCache = { quotes, expiresAt: Date.now() + CACHE_MS }
+      return quotes
+    })()
+
+    try {
+      return await liveRequest
+    } finally {
+      liveRequest = null
+    }
   }
 }
 
