@@ -19,8 +19,7 @@ export class DemoMarketProvider implements MarketProvider {
   }
 }
 
-// Twelve Data's free plan allows 8 API credits per minute.
-// Keep the live dashboard within that limit and refresh at most once per minute.
+// Twelve Data free plan: keep live quote traffic to one batched request per minute.
 const LIVE_SYMBOLS = [
   { symbol: 'RELIANCE:NSE', name: 'Reliance Industries', currency: 'INR' },
   { symbol: 'TCS:NSE', name: 'Tata Consultancy Services', currency: 'INR' },
@@ -35,31 +34,74 @@ const LIVE_SYMBOLS = [
 const CACHE_MS = 60_000
 let liveCache: { quotes: Quote[]; expiresAt: number } | null = null
 let liveRequest: Promise<Quote[]> | null = null
+let debugInitialized = false
+
+function debug(message: string, details?: Record<string, unknown>) {
+  console.log(`[MarketOS][MarketData] ${message}${details ? ` ${JSON.stringify(details)}` : ''}`)
+}
+
+function printStatus() {
+  if (debugInitialized) return
+  debugInitialized = true
+  debug('STATUS', {
+    mode: process.env.MARKET_DATA_MODE === 'live' ? 'LIVE' : 'DEMO',
+    provider: process.env.MARKET_DATA_MODE === 'live' && process.env.TWELVE_DATA_API_KEY ? 'Twelve Data' : 'Demo',
+    apiKeyLoaded: Boolean(process.env.TWELVE_DATA_API_KEY),
+    symbols: LIVE_SYMBOLS.length,
+    cacheSeconds: CACHE_MS / 1000,
+    rateLimitStrategy: '1 batched request / 60s',
+  })
+}
 
 export class TwelveDataMarketProvider implements MarketProvider {
   async quotes(): Promise<Quote[]> {
+    printStatus()
     const now = Date.now()
-    if (liveCache && liveCache.expiresAt > now) return liveCache.quotes
 
-    // Deduplicate simultaneous page/API requests so one refresh costs one API call.
-    if (liveRequest) return liveRequest
+    if (liveCache && liveCache.expiresAt > now) {
+      debug('CACHE HIT', { quotes: liveCache.quotes.length, secondsRemaining: Math.ceil((liveCache.expiresAt - now) / 1000) })
+      return liveCache.quotes
+    }
 
+    if (liveRequest) {
+      debug('REQUEST JOIN', { reason: 'another request is already fetching live data' })
+      return liveRequest
+    }
+
+    debug('API REQUEST START', { symbols: LIVE_SYMBOLS.length })
     liveRequest = (async () => {
-      const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
-      const bySymbol = new Map(rows.map(row => [row.symbol.toUpperCase(), row]))
-      const quotes = LIVE_SYMBOLS.flatMap(meta => {
-        const row = bySymbol.get(meta.symbol.toUpperCase())
-        if (!row || !row.close) return []
-        return [{
-          symbol: meta.symbol,
-          name: row.name || meta.name,
-          price: Number(row.close),
-          changePercent: Number(row.percent_change || 0),
-          currency: row.currency || meta.currency,
-        }]
-      })
-      liveCache = { quotes, expiresAt: Date.now() + CACHE_MS }
-      return quotes
+      const started = Date.now()
+      try {
+        const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
+        const validRows = rows.filter(row => typeof row?.symbol === 'string' && row.symbol.length > 0)
+        const invalidRows = rows.length - validRows.length
+        if (invalidRows > 0) debug('IGNORED INVALID ROWS', { invalidRows })
+
+        const bySymbol = new Map(validRows.map(row => [row.symbol.toUpperCase(), row]))
+        const quotes = LIVE_SYMBOLS.flatMap(meta => {
+          const row = bySymbol.get(meta.symbol.toUpperCase())
+          if (!row || !row.close) return []
+          return [{
+            symbol: meta.symbol,
+            name: row.name || meta.name,
+            price: Number(row.close),
+            changePercent: Number(row.percent_change || 0),
+            currency: row.currency || meta.currency,
+          }]
+        })
+
+        liveCache = { quotes, expiresAt: Date.now() + CACHE_MS }
+        debug('API REQUEST SUCCESS', {
+          returned: rows.length,
+          usable: quotes.length,
+          elapsedMs: Date.now() - started,
+          cacheSeconds: CACHE_MS / 1000,
+        })
+        return quotes
+      } catch (error) {
+        debug('API REQUEST FAILED', { elapsedMs: Date.now() - started, error: error instanceof Error ? error.message : String(error) })
+        throw error
+      }
     })()
 
     try {
@@ -71,6 +113,7 @@ export class TwelveDataMarketProvider implements MarketProvider {
 }
 
 export function getMarketProvider(): MarketProvider {
+  printStatus()
   if (process.env.MARKET_DATA_MODE === 'live' && process.env.TWELVE_DATA_API_KEY) {
     return new TwelveDataMarketProvider()
   }
