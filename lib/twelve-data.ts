@@ -31,8 +31,29 @@ async function request(path: string, params: Record<string, string>) {
 export async function twelveQuotes(symbols: string[]) {
   const data = await request('/quote', { symbol: symbols.join(',') })
   const rows: TwelveQuote[] = []
+
+  // Single-symbol responses are returned directly by Twelve Data.
   if (symbols.length === 1 && data.symbol) rows.push(data)
-  else for (const value of Object.values(data as Record<string, TwelveQuote>)) if (value && typeof value === 'object') rows.push(value)
+  else {
+    // Batch responses are keyed by symbol. Some responses do not repeat the
+    // symbol inside each object, so use the response key as a safe fallback.
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue
+      const row = value as Partial<TwelveQuote>
+      if (!row.close) continue
+      rows.push({
+        ...(row as TwelveQuote),
+        symbol: row.symbol || key,
+      })
+    }
+  }
+
+  console.log('[MarketOS][TwelveData] Quote response', {
+    requested: symbols.length,
+    returned: rows.length,
+    symbols: rows.map(row => row.symbol),
+  })
+
   return rows
 }
 
