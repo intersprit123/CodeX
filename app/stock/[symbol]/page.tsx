@@ -1,5 +1,5 @@
 import TradingChart from '@/components/TradingChart'
-import { getMarketProvider } from '@/lib/market-provider'
+import { twelveQuotes } from '@/lib/twelve-data'
 import { MARKET_MODE } from '@/lib/market-mode'
 
 type StockState = { name:string; price:string; change:string; sector:string; pe:string; roe:string; growth:string }
@@ -17,13 +17,20 @@ export default async function StockPage({params}:{params:Promise<{symbol:string}
 
   if(MARKET_MODE==='live'&&process.env.TWELVE_DATA_API_KEY){
     try{
-      const quote=(await getMarketProvider()).quotes().then(rows=>rows.find(q=>q.symbol.toUpperCase()===`${key}:NSE`||q.symbol.toUpperCase()===key))
-      const q=await quote
-      if(q){
-        s={...s,name:q.name||s.name,price:`${q.currency==='INR'?'₹':q.currency+' '}${q.price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`,change:`${q.changePercent>=0?'+':''}${q.changePercent.toFixed(2)}%`}
+      // Fetch the requested NSE stock directly. This avoids showing a demo
+      // quote when the global 8-symbol batch has only returned part of its data.
+      const rows=await twelveQuotes([`${key}:NSE`])
+      const q=rows.find(row=>row.symbol?.toUpperCase()===key||row.symbol?.toUpperCase()===`${key}:NSE`)
+      if(q?.close){
+        s={...s,name:q.name||s.name,price:`${q.currency==='INR'?'₹':q.currency+' '}${Number(q.close).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`,change:`${Number(q.percent_change||0)>=0?'+':''}${Number(q.percent_change||0).toFixed(2)}%`}
         liveQuote=true
+      }else{
+        s={...s,price:'—',change:''}
       }
-    }catch{}
+    }catch{
+      // Never expose provider/API errors in the stock UI.
+      s={...s,price:'—',change:''}
+    }
   }
 
   const pricePositive=!s.change.startsWith('-')
