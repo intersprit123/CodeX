@@ -1,4 +1,4 @@
-import { twelveQuotes } from '@/lib/twelve-data'
+import { finmagineTopMovers } from '@/lib/finmagine'
 
 export type Quote = { symbol: string; name: string; price: number; changePercent: number; currency: string }
 
@@ -19,24 +19,13 @@ export class DemoMarketProvider implements MarketProvider {
   }
 }
 
-// Twelve Data free plan: keep live quote traffic to one batched request per minute.
-const LIVE_SYMBOLS = [
-  { symbol: 'RELIANCE:NSE', name: 'Reliance Industries', currency: 'INR' },
-  { symbol: 'TCS:NSE', name: 'Tata Consultancy Services', currency: 'INR' },
-  { symbol: 'INFY:NSE', name: 'Infosys', currency: 'INR' },
-  { symbol: 'HDFCBANK:NSE', name: 'HDFC Bank', currency: 'INR' },
-  { symbol: 'ICICIBANK:NSE', name: 'ICICI Bank', currency: 'INR' },
-  { symbol: 'BHARTIARTL:NSE', name: 'Bharti Airtel', currency: 'INR' },
-  { symbol: 'LT:NSE', name: 'Larsen & Toubro', currency: 'INR' },
-  { symbol: 'ITC:NSE', name: 'ITC', currency: 'INR' },
-]
-
-const CACHE_MS = 60_000
+// Finmagine free tier: use one market endpoint for multiple NSE stocks.
+// The free tier is 50 requests/day and 10/hour, so keep the dashboard cached.
+const CACHE_MS = 30 * 60_000
 let liveCache: { quotes: Quote[]; expiresAt: number } | null = null
 let liveRequest: Promise<Quote[]> | null = null
 let debugInitialized = false
 
-// Debug output is server-terminal only and is disabled in production.
 function debug(message: string, details?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== 'development') return
   console.log(`[MarketOS][MarketData] ${message}${details ? ` ${JSON.stringify(details)}` : ''}`)
@@ -47,48 +36,62 @@ function printStatus() {
   debugInitialized = true
   debug('STATUS', {
     mode: process.env.MARKET_DATA_MODE === 'live' ? 'LIVE' : 'DEMO',
-    provider: process.env.MARKET_DATA_MODE === 'live' && process.env.TWELVE_DATA_API_KEY ? 'Twelve Data' : 'Demo',
-    apiKeyLoaded: Boolean(process.env.TWELVE_DATA_API_KEY),
-    symbols: LIVE_SYMBOLS.length,
-    cacheSeconds: CACHE_MS / 1000,
-    rateLimitStrategy: '1 batched request / 60s',
+    provider: process.env.MARKET_DATA_MODE === 'live' && process.env.FINMAGINE_API_KEY ? 'Finmagine' : 'Demo',
+    apiKeyLoaded: Boolean(process.env.FINMAGINE_API_KEY),
+    endpoint: '/market/top-movers',
+    cacheMinutes: CACHE_MS / 60_000,
+    rateLimitStrategy: '1 market request / 30m',
   })
 }
 
-export class TwelveDataMarketProvider implements MarketProvider {
+function numberValue(...values: unknown[]) {
+  for (const value of values) {
+    const n = Number(value)
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
+
+export class FinmagineMarketProvider implements MarketProvider {
   async quotes(): Promise<Quote[]> {
     printStatus()
     const now = Date.now()
 
     if (liveCache && liveCache.expiresAt > now) {
-      debug('CACHE HIT', { quotes: liveCache.quotes.length, secondsRemaining: Math.ceil((liveCache.expiresAt - now) / 1000) })
+      debug('CACHE HIT', {
+        quotes: liveCache.quotes.length,
+        secondsRemaining: Math.ceil((liveCache.expiresAt - now) / 1000),
+      })
       return liveCache.quotes
     }
 
     if (liveRequest) {
-      debug('REQUEST JOIN', { reason: 'another request is already fetching live data' })
+      debug('REQUEST JOIN', { reason: 'another request is already fetching market data' })
       return liveRequest
     }
 
-    debug('API REQUEST START', { symbols: LIVE_SYMBOLS.length })
+    debug('API REQUEST START', { provider: 'Finmagine', endpoint: '/market/top-movers' })
     liveRequest = (async () => {
       const started = Date.now()
       try {
-        const rows = await twelveQuotes(LIVE_SYMBOLS.map(x => x.symbol))
-        const validRows = rows.filter(row => typeof row?.symbol === 'string' && row.symbol.length > 0)
-        const invalidRows = rows.length - validRows.length
-        if (invalidRows > 0) debug('IGNORED INVALID ROWS', { invalidRows })
+        const rows = await finmagineTopMovers(8)
+        const quotes = rows.flatMap((row) => {
+          const symbol = typeof row.symbol === 'string' ? row.symbol.trim().toUpperCase() : ''
+          const price = numberValue(row.price_cmp, row.current_price, row.price, row.close, row.cmp)
+          if (!symbol || price === null || price <= 0) return []
 
-        const bySymbol = new Map(validRows.map(row => [row.symbol.toUpperCase(), row]))
-        const quotes = LIVE_SYMBOLS.flatMap(meta => {
-          const row = bySymbol.get(meta.symbol.toUpperCase())
-          if (!row || !row.close) return []
+          const changePercent = numberValue(
+            row.change_percent,
+            row.percent_change,
+            row.change_pct,
+          ) ?? 0
+
           return [{
-            symbol: meta.symbol,
-            name: row.name || meta.name,
-            price: Number(row.close),
-            changePercent: Number(row.percent_change || 0),
-            currency: row.currency || meta.currency,
+            symbol,
+            name: row.company_name || row.name || symbol,
+            price,
+            changePercent,
+            currency: row.currency || 'INR',
           }]
         })
 
@@ -97,11 +100,10 @@ export class TwelveDataMarketProvider implements MarketProvider {
           returned: rows.length,
           usable: quotes.length,
           elapsedMs: Date.now() - started,
-          cacheSeconds: CACHE_MS / 1000,
+          cacheMinutes: CACHE_MS / 60_000,
         })
         return quotes
       } catch (error) {
-        // Never print the API key or raw provider payload.
         debug('API REQUEST FAILED', {
           elapsedMs: Date.now() - started,
           error: error instanceof Error ? error.message : 'Unknown market data error',
@@ -120,8 +122,8 @@ export class TwelveDataMarketProvider implements MarketProvider {
 
 export function getMarketProvider(): MarketProvider {
   printStatus()
-  if (process.env.MARKET_DATA_MODE === 'live' && process.env.TWELVE_DATA_API_KEY) {
-    return new TwelveDataMarketProvider()
+  if (process.env.MARKET_DATA_MODE === 'live' && process.env.FINMAGINE_API_KEY) {
+    return new FinmagineMarketProvider()
   }
   return new DemoMarketProvider()
 }
