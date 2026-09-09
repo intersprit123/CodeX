@@ -1,6 +1,12 @@
 import { finmagineTopMovers } from '@/lib/finmagine'
 
-export type Quote = { symbol: string; name: string; price: number; changePercent: number; currency: string }
+export type Quote = {
+  symbol: string
+  name: string
+  price: number
+  changePercent: number
+  currency: string
+}
 
 export interface MarketProvider {
   quotes(): Promise<Quote[]>
@@ -19,24 +25,39 @@ export class DemoMarketProvider implements MarketProvider {
   }
 }
 
-// Finmagine free tier: use one market endpoint for multiple NSE stocks.
-// The free tier is 50 requests/day and 10/hour, so keep the dashboard cached.
+// Finmagine free tier: cache market data to reduce API usage.
 const CACHE_MS = 30 * 60_000
-let liveCache: { quotes: Quote[]; expiresAt: number } | null = null
+
+let liveCache: {
+  quotes: Quote[]
+  expiresAt: number
+} | null = null
+
 let liveRequest: Promise<Quote[]> | null = null
 let debugInitialized = false
 
 function debug(message: string, details?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== 'development') return
-  console.log(`[MarketOS][MarketData] ${message}${details ? ` ${JSON.stringify(details)}` : ''}`)
+
+  console.log(
+    `[MarketOS][MarketData] ${message}${
+      details ? ` ${JSON.stringify(details)}` : ''
+    }`,
+  )
 }
 
 function printStatus() {
   if (debugInitialized) return
+
   debugInitialized = true
+
   debug('STATUS', {
     mode: process.env.MARKET_DATA_MODE === 'live' ? 'LIVE' : 'DEMO',
-    provider: process.env.MARKET_DATA_MODE === 'live' && process.env.FINMAGINE_API_KEY ? 'Finmagine' : 'Demo',
+    provider:
+      process.env.MARKET_DATA_MODE === 'live' &&
+      process.env.FINMAGINE_API_KEY
+        ? 'Finmagine'
+        : 'Demo',
     apiKeyLoaded: Boolean(process.env.FINMAGINE_API_KEY),
     endpoint: '/market/top-movers',
     cacheMinutes: CACHE_MS / 60_000,
@@ -47,67 +68,111 @@ function printStatus() {
 function numberValue(...values: unknown[]) {
   for (const value of values) {
     const n = Number(value)
-    if (Number.isFinite(n)) return n
+
+    if (Number.isFinite(n)) {
+      return n
+    }
   }
+
   return null
 }
 
 export class FinmagineMarketProvider implements MarketProvider {
   async quotes(): Promise<Quote[]> {
     printStatus()
+
     const now = Date.now()
 
     if (liveCache && liveCache.expiresAt > now) {
       debug('CACHE HIT', {
         quotes: liveCache.quotes.length,
-        secondsRemaining: Math.ceil((liveCache.expiresAt - now) / 1000),
+        secondsRemaining: Math.ceil(
+          (liveCache.expiresAt - now) / 1000,
+        ),
       })
+
       return liveCache.quotes
     }
 
     if (liveRequest) {
-      debug('REQUEST JOIN', { reason: 'another request is already fetching market data' })
+      debug('REQUEST JOIN', {
+        reason: 'another request is already fetching market data',
+      })
+
       return liveRequest
     }
 
-    debug('API REQUEST START', { provider: 'Finmagine', endpoint: '/market/top-movers' })
+    debug('API REQUEST START', {
+      provider: 'Finmagine',
+      endpoint: '/market/top-movers',
+    })
+
     liveRequest = (async () => {
       const started = Date.now()
+
       try {
         const rows = await finmagineTopMovers(8)
+
         const quotes = rows.flatMap((row) => {
-          const symbol = typeof row.symbol === 'string' ? row.symbol.trim().toUpperCase() : ''
-          const price = numberValue(row.price_cmp, row.current_price, row.price, row.close, row.cmp)
-          if (!symbol || price === null || price <= 0) return []
+          const symbol =
+            typeof row.symbol === 'string'
+              ? row.symbol.trim().toUpperCase()
+              : ''
 
-          const changePercent = numberValue(
-            row.change_percent,
-            row.percent_change,
-            row.change_pct,
-          ) ?? 0
+          const price = numberValue(
+            row.price_cmp,
+            row.current_price,
+            row.price,
+            row.close,
+            row.close_price,
+            row.cmp,
+          )
 
-          return [{
-            symbol,
-            name: row.company_name || row.name || symbol,
-            price,
-            changePercent,
-            currency: row.currency || 'INR',
-          }]
+          if (!symbol || price === null || price <= 0) {
+            return []
+          }
+
+          const changePercent =
+            numberValue(
+              row.change_percent,
+              row.percent_change,
+              row.change_pct,
+              row.pct_change,
+            ) ?? 0
+
+          return [
+            {
+              symbol,
+              name: row.company_name || row.name || symbol,
+              price,
+              changePercent,
+              currency: row.currency || 'INR',
+            },
+          ]
         })
 
-        liveCache = { quotes, expiresAt: Date.now() + CACHE_MS }
+        liveCache = {
+          quotes,
+          expiresAt: Date.now() + CACHE_MS,
+        }
+
         debug('API REQUEST SUCCESS', {
           returned: rows.length,
           usable: quotes.length,
           elapsedMs: Date.now() - started,
           cacheMinutes: CACHE_MS / 60_000,
         })
+
         return quotes
       } catch (error) {
         debug('API REQUEST FAILED', {
           elapsedMs: Date.now() - started,
-          error: error instanceof Error ? error.message : 'Unknown market data error',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Unknown market data error',
         })
+
         throw error
       }
     })()
@@ -122,8 +187,13 @@ export class FinmagineMarketProvider implements MarketProvider {
 
 export function getMarketProvider(): MarketProvider {
   printStatus()
-  if (process.env.MARKET_DATA_MODE === 'live' && process.env.FINMAGINE_API_KEY) {
+
+  if (
+    process.env.MARKET_DATA_MODE === 'live' &&
+    process.env.FINMAGINE_API_KEY
+  ) {
     return new FinmagineMarketProvider()
   }
+
   return new DemoMarketProvider()
 }

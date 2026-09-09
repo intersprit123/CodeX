@@ -2,6 +2,14 @@ import TradingChart from '@/components/TradingChart'
 import { twelveQuotes } from '@/lib/twelve-data'
 import { MARKET_MODE } from '@/lib/market-mode'
 
+export function generateStaticParams() {
+  return [
+    { symbol: 'RELIANCE' },
+    { symbol: 'TCS' },
+    { symbol: 'INFY' },
+  ]
+}
+
 type StockState = { name:string; price:string; change:string; sector:string; pe:string; roe:string; growth:string }
 
 const demo:Record<string,StockState>={RELIANCE:{name:'Reliance Industries',price:'₹1,418.30',change:'+2.84%',sector:'Energy · Retail',pe:'24.1x',roe:'11.8%',growth:'8.4%'},TCS:{name:'Tata Consultancy Services',price:'₹3,284.40',change:'+1.82%',sector:'IT Services',pe:'28.6x',roe:'49.2%',growth:'10.7%'},INFY:{name:'Infosys',price:'₹1,492.20',change:'+1.72%',sector:'IT Services',pe:'25.4x',roe:'31.1%',growth:'8.9%'}}
