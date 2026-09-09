@@ -3,6 +3,12 @@ import { twelveTimeSeries } from '@/lib/twelve-data'
 import { MARKET_MODE } from '@/lib/market-mode'
 
 const SYMBOL_RE = /^[A-Z0-9.:_-]{1,30}$/i
+const NSE_SYMBOLS = new Set(['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'BHARTIARTL', 'LT', 'ITC'])
+
+function providerSymbol(symbol: string) {
+  const upper = symbol.toUpperCase()
+  return NSE_SYMBOLS.has(upper) ? `${upper}:NSE` : upper
+}
 
 function demoHistory(symbol: string) {
   const upper = symbol.toUpperCase()
@@ -26,7 +32,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const data = await twelveTimeSeries(symbol, '1day', '120') as {
+    const data = await twelveTimeSeries(providerSymbol(symbol), '1day', '120') as {
       values?: Array<{ datetime?: string; open?: string; high?: string; low?: string; close?: string; volume?: string }>
     }
     const values = (data.values || []).filter(v => v.open && v.high && v.low && v.close).reverse().map(v => ({
