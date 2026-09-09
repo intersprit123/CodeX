@@ -2,15 +2,17 @@ import TradingChart from '@/components/TradingChart'
 import { getMarketProvider } from '@/lib/market-provider'
 import { MARKET_MODE } from '@/lib/market-mode'
 
-const demo={RELIANCE:{name:'Reliance Industries',price:'₹1,418.30',change:'+2.84%',sector:'Energy · Retail',pe:'24.1x',roe:'11.8%',growth:'8.4%'},TCS:{name:'Tata Consultancy Services',price:'₹3,284.40',change:'+1.82%',sector:'IT Services',pe:'28.6x',roe:'49.2%',growth:'10.7%'},INFY:{name:'Infosys',price:'₹1,492.20',change:'+1.72%',sector:'IT Services',pe:'25.4x',roe:'31.1%',growth:'8.9%'}} as const
+type StockState = { name:string; price:string; change:string; sector:string; pe:string; roe:string; growth:string }
+
+const demo:Record<string,StockState>={RELIANCE:{name:'Reliance Industries',price:'₹1,418.30',change:'+2.84%',sector:'Energy · Retail',pe:'24.1x',roe:'11.8%',growth:'8.4%'},TCS:{name:'Tata Consultancy Services',price:'₹3,284.40',change:'+1.82%',sector:'IT Services',pe:'28.6x',roe:'49.2%',growth:'10.7%'},INFY:{name:'Infosys',price:'₹1,492.20',change:'+1.72%',sector:'IT Services',pe:'25.4x',roe:'31.1%',growth:'8.9%'}}
 
 const liveMeta:Record<string,{name:string;sector:string}>={RELIANCE:{name:'Reliance Industries',sector:'Energy · Retail'},TCS:{name:'Tata Consultancy Services',sector:'IT Services'},INFY:{name:'Infosys',sector:'IT Services'},HDFCBANK:{name:'HDFC Bank',sector:'Financials'},ICICIBANK:{name:'ICICI Bank',sector:'Financials'},BHARTIARTL:{name:'Bharti Airtel',sector:'Telecom'},LT:{name:'Larsen & Toubro',sector:'Industrials'},ITC:{name:'ITC',sector:'Consumer'}}
 
 export default async function StockPage({params}:{params:Promise<{symbol:string}>}){
   const{symbol}=await params
   const key=symbol.toUpperCase()
-  const fallback=demo[key as keyof typeof demo]||{name:liveMeta[key]?.name||key,price:'—',change:'',sector:liveMeta[key]?.sector||'NSE · Equity',pe:'—',roe:'—',growth:'—'}
-  let s={...fallback}
+  const fallback:StockState=demo[key]||{name:liveMeta[key]?.name||key,price:'—',change:'',sector:liveMeta[key]?.sector||'NSE · Equity',pe:'—',roe:'—',growth:'—'}
+  let s:StockState={...fallback}
   let liveQuote=false
 
   if(MARKET_MODE==='live'&&process.env.TWELVE_DATA_API_KEY){
