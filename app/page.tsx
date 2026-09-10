@@ -29,9 +29,40 @@ type Quote = {
   currency: string
 }
 
+function getGreeting(hour: number) {
+  if (hour < 5) return 'Good night, market watcher.'
+  if (hour < 12) return 'Good morning, market watcher.'
+  if (hour < 17) return 'Good afternoon, market watcher.'
+  return 'Good evening, market watcher.'
+}
+
+function formatOverviewDate(date: Date) {
+  return new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date).toUpperCase()
+}
+
+function formatOverviewTime(date: Date) {
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }).format(date)
+}
+
 export default function Home(){
   const [quotes,setQuotes]=useState<Quote[]>([])
   const [live,setLive]=useState(false)
+  const [now,setNow]=useState(() => new Date())
+
+  useEffect(()=>{
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  },[])
 
   useEffect(()=>{
     let active=true
@@ -57,5 +88,9 @@ export default function Home(){
     ])
   },[quotes])
 
-  return <main className="min-h-screen flex"><aside className="w-64 border-r border-white/5 p-5 hidden lg:block"><div className="text-xl font-bold tracking-tight mb-10">◈ Market<span className="text-cyan-400">OS</span></div><nav className="space-y-1 text-sm text-slate-400">{nav.map(([x,u],i)=><a href={u} className={`block px-3 py-2.5 rounded-lg hover:bg-white/5 hover:text-white ${i===0?'bg-white/8 text-white':''}`} key={x}>{x}</a>)}</nav><div className="mt-10 p-4 rounded-xl glass"><div className="text-xs text-slate-500">AI MARKET COPILOT</div><p className="text-sm mt-2 text-slate-300">Ask why markets moved, compare companies, or scan for opportunities.</p><a href="/ai" className="block text-center mt-3 w-full rounded-lg bg-cyan-400 text-black py-2 text-sm font-semibold">Open AI</a></div></aside><section className="flex-1 p-5 md:p-8 max-w-[1600px] mx-auto w-full"><header className="flex flex-col md:flex-row md:items-center gap-4 justify-between mb-7"><div><div className="text-sm text-cyan-400 font-medium">FRIDAY · AUG 28, 2026</div><h1 className="text-3xl md:text-4xl font-bold mt-1">Good evening, market watcher.</h1><p className="text-slate-500 mt-1">Everything moving the world’s markets, in one place.</p></div><div className="flex gap-2"><input placeholder="Search stocks, ETFs, markets..." className="w-64 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 outline-none focus:border-cyan-400/50"/><button className="glass px-4 rounded-xl">⌘K</button></div></header><div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-7">{demoMarkets.map(([n,v,c])=><div className="glass rounded-xl p-4" key={n}><div className="text-xs text-slate-500">{n}</div><div className="font-semibold mt-2">{v}</div><div className={`text-xs mt-1 ${c.startsWith('-')?'text-red-400':'text-emerald-400'}`}>{c}</div></div>)}</div><div className="grid xl:grid-cols-[1.5fr_1fr] gap-5"><div className="glass rounded-2xl p-5 min-h-[390px]"><div className="flex justify-between"><div><h2 className="font-semibold text-lg">Global Market Pulse</h2><p className="text-sm text-slate-500">Demo index snapshot · live equity feed connected</p></div><a href="/markets" className="text-sm text-cyan-400">View all →</a></div><div className="h-64 mt-7 rounded-xl bg-gradient-to-b from-cyan-400/8 to-transparent border-b border-white/5 relative overflow-hidden"><svg viewBox="0 0 900 260" className="w-full h-full"><polyline fill="none" stroke="currentColor" strokeWidth="3" className="text-cyan-400" points="0,205 55,190 95,198 150,150 205,170 260,120 310,135 365,90 420,115 480,70 540,92 600,45 660,62 720,32 780,54 840,20 900,38"/></svg></div><div className="flex justify-between text-xs text-slate-600 mt-2"><span>9:15</span><span>11:00</span><span>13:00</span><span>15:00</span><span>Close</span></div></div><div className="glass rounded-2xl p-5"><div className="flex justify-between items-center"><div><h2 className="font-semibold text-lg">Top Movers</h2><p className="text-sm text-slate-500">Live equity quotes when available</p></div><span className={`text-xs ${live?'text-emerald-400':'text-slate-500'}`}>INDIA · {live?'LIVE':'DEMO'}</span></div><div className="mt-5 space-y-1">{movers.map(([n,v,c])=><div className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5" key={n}><div><div className="text-sm font-medium">{n}</div><div className="text-xs text-slate-500">NSE · Equity</div></div><div className="text-right"><div className="text-sm">{v}</div><div className={`text-xs ${String(c).startsWith('-')?'text-red-400':'text-emerald-400'}`}>{c}</div></div></div>)}</div></div></div><div className="grid md:grid-cols-3 gap-5 mt-5">{[['AI BRIEF','What matters today?','Get an AI summary of the market and the forces moving it.','/ai'],['WATCHLIST','Your stocks','Track companies, price moves, news and future alerts.','/watchlist'],['SCREENER','Find something interesting','Filter the demo universe by fundamentals and technical criteria.','/screener']].map(([k,t,d,u])=><a href={u} className="glass rounded-2xl p-5 hover:bg-white/[.05]" key={t}><div className="text-xs text-cyan-400">{k}</div><h3 className="font-semibold mt-2">{t}</h3><p className="text-sm text-slate-400 mt-2">{d}</p><div className="text-sm text-cyan-400 mt-4">Open →</div></a>)}</div></section></main>
+  const greeting = getGreeting(now.getHours())
+  const dateLabel = formatOverviewDate(now)
+  const timeLabel = formatOverviewTime(now)
+
+  return <main className="min-h-screen flex"><aside className="w-64 border-r border-white/5 p-5 hidden lg:block"><div className="text-xl font-bold tracking-tight mb-10">◈ Market<span className="text-cyan-400">OS</span></div><nav className="space-y-1 text-sm text-slate-400">{nav.map(([x,u],i)=><a href={u} className={`block px-3 py-2.5 rounded-lg hover:bg-white/5 hover:text-white ${i===0?'bg-white/8 text-white':''}`} key={x}>{x}</a>)}</nav><div className="mt-10 p-4 rounded-xl glass"><div className="text-xs text-slate-500">AI MARKET COPILOT</div><p className="text-sm mt-2 text-slate-300">Ask why markets moved, compare companies, or scan for opportunities.</p><a href="/ai" className="block text-center mt-3 w-full rounded-lg bg-cyan-400 text-black py-2 text-sm font-semibold">Open AI</a></div></aside><section className="flex-1 p-5 md:p-8 max-w-[1600px] mx-auto w-full"><header className="flex flex-col md:flex-row md:items-center gap-4 justify-between mb-7"><div><div className="text-sm text-cyan-400 font-medium">{dateLabel}</div><h1 className="text-3xl md:text-4xl font-bold mt-1">{greeting}</h1><p className="text-slate-500 mt-1">Everything moving the world’s markets, in one place.</p></div><div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"><div className="glass rounded-xl px-4 py-2.5 text-right min-w-[150px]"><div className="text-[10px] tracking-wider text-slate-500">LOCAL TIME</div><div className="text-sm font-semibold text-cyan-300 tabular-nums mt-0.5">{timeLabel}</div></div><input placeholder="Search stocks, ETFs, markets..." className="w-64 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 outline-none focus:border-cyan-400/50"/><button className="glass px-4 rounded-xl">⌘K</button></div></header><div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-7">{demoMarkets.map(([n,v,c])=><div className="glass rounded-xl p-4" key={n}><div className="text-xs text-slate-500">{n}</div><div className="font-semibold mt-2">{v}</div><div className={`text-xs mt-1 ${c.startsWith('-')?'text-red-400':'text-emerald-400'}`}>{c}</div></div>)}</div><div className="grid xl:grid-cols-[1.5fr_1fr] gap-5"><div className="glass rounded-2xl p-5 min-h-[390px]"><div className="flex justify-between"><div><h2 className="font-semibold text-lg">Global Market Pulse</h2><p className="text-sm text-slate-500">Demo index snapshot · live equity feed connected</p></div><a href="/markets" className="text-sm text-cyan-400">View all →</a></div><div className="h-64 mt-7 rounded-xl bg-gradient-to-b from-cyan-400/8 to-transparent border-b border-white/5 relative overflow-hidden"><svg viewBox="0 0 900 260" className="w-full h-full"><polyline fill="none" stroke="currentColor" strokeWidth="3" className="text-cyan-400" points="0,205 55,190 95,198 150,150 205,170 260,120 310,135 365,90 420,115 480,70 540,92 600,45 660,62 720,32 780,54 840,20 900,38"/></svg></div><div className="flex justify-between text-xs text-slate-600 mt-2"><span>9:15</span><span>11:00</span><span>13:00</span><span>15:00</span><span>Close</span></div></div><div className="glass rounded-2xl p-5"><div className="flex justify-between items-center"><div><h2 className="font-semibold text-lg">Top Movers</h2><p className="text-sm text-slate-500">Live equity quotes when available</p></div><span className={`text-xs ${live?'text-emerald-400':'text-slate-500'}`}>INDIA · {live?'LIVE':'DEMO'}</span></div><div className="mt-5 space-y-1">{movers.map(([n,v,c])=><div className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5" key={n}><div><div className="text-sm font-medium">{n}</div><div className="text-xs text-slate-500">NSE · Equity</div></div><div className="text-right"><div className="text-sm">{v}</div><div className={`text-xs ${String(c).startsWith('-')?'text-red-400':'text-emerald-400'}`}>{c}</div></div></div>)}</div></div></div><div className="grid md:grid-cols-3 gap-5 mt-5">{[['AI BRIEF','What matters today?','Get an AI summary of the market and the forces moving it.','/ai'],['WATCHLIST','Your stocks','Track companies, price moves, news and future alerts.','/watchlist'],['SCREENER','Find something interesting','Filter the demo universe by fundamentals and technical criteria.','/screener']].map(([k,t,d,u])=><a href={u} className="glass rounded-2xl p-5 hover:bg-white/[.05]" key={t}><div className="text-xs text-cyan-400">{k}</div><h3 className="font-semibold mt-2">{t}</h3><p className="text-sm text-slate-400 mt-2">{d}</p><div className="text-sm text-cyan-400 mt-4">Open →</div></a>)}</div></section></main>
 }
