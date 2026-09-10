@@ -67,9 +67,23 @@ function createAlert(symbol: string) {
 
 export default function Markets() {
   const [selected, setSelected] = useState(quotes[4].symbol)
+  const [quantity, setQuantity] = useState(100)
+  const [side, setSide] = useState<'buy' | 'sell'>('buy')
   const selectedQuote = quotes.find(q => q.symbol === selected) ?? quotes[4]
   const values = history[selectedQuote.symbol]
   const low = useMemo(() => Math.min(...values), [values]), high = useMemo(() => Math.max(...values), [values])
+
+  // Educational demo model: order pressure is intentionally capped and is not a real price forecast.
+  const simulation = useMemo(() => {
+    const trendPct = ((values[values.length - 1] - values[0]) / values[0]) * 100
+    const orderValue = quantity * selectedQuote.price
+    const pressurePct = Math.min(5, (orderValue / 100000) * 0.5)
+    const direction = side === 'buy' ? 1 : -1
+    const simulatedMove = direction * pressurePct
+    const predictedPrice = selectedQuote.price * (1 + (trendPct / 100 / 30) * 7 + simulatedMove / 100)
+    const afterTradeValue = quantity * selectedQuote.price * (1 + simulatedMove / 100)
+    return { trendPct, pressurePct, simulatedMove, predictedPrice, afterTradeValue }
+  }, [quantity, selectedQuote, side, values])
 
   return <main className="p-6 md:p-10 max-w-7xl mx-auto">
     <a href="/" className="text-sm text-cyan-400">MarketOS</a>
@@ -81,6 +95,25 @@ export default function Markets() {
     </div>)}</div>
 
     <section className="glass rounded-2xl mt-10 p-5 md:p-7"><div className="flex flex-col md:flex-row md:items-start justify-between gap-4"><div><div className="text-cyan-400 text-xs font-medium tracking-wider">PRICE HISTORY</div><h2 className="text-2xl font-semibold mt-2">{selectedQuote.name}</h2><p className="text-slate-500 mt-1">{selectedQuote.symbol} · 30-day history</p></div><div className="text-right"><div className="text-2xl font-semibold">Rs. {selectedQuote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className="text-emerald-400 text-sm mt-1">+{selectedQuote.changePercent.toFixed(2)}%</div></div></div><div className="mt-7 rounded-xl bg-black/20 p-3 md:p-5 overflow-hidden"><FakeChart values={values} /></div><div className="grid grid-cols-3 gap-3 mt-5 text-sm"><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Period</div><div className="mt-1 font-medium">30 days</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Low</div><div className="mt-1 font-medium">Rs. {low.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">High</div><div className="mt-1 font-medium">Rs. {high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div></div><div className="mt-5 text-xs text-amber-300/80">DEMO HISTORY · Sample data for UI preview only.</div></section>
+
+    <section className="glass rounded-2xl mt-6 p-5 md:p-7">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div><div className="text-cyan-400 text-xs font-medium tracking-wider">TRADE SIMULATOR</div><h2 className="text-2xl font-semibold mt-2">Buy / Sell Impact</h2><p className="text-slate-500 mt-1">See how a hypothetical order could affect the demo price.</p></div>
+        <div className="text-xs text-amber-300 rounded-lg bg-amber-400/10 px-3 py-2">DEMO SIMULATION · NOT A REAL FORECAST</div>
+      </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div><label className="text-xs text-slate-500">Action</label><div className="grid grid-cols-2 gap-2 mt-2"><button type="button" onClick={() => setSide('buy')} className={`rounded-xl px-4 py-3 font-semibold ${side === 'buy' ? 'bg-emerald-400 text-black' : 'bg-white/5'}`}>Buy</button><button type="button" onClick={() => setSide('sell')} className={`rounded-xl px-4 py-3 font-semibold ${side === 'sell' ? 'bg-red-400 text-black' : 'bg-white/5'}`}>Sell</button></div></div>
+        <div><label htmlFor="quantity" className="text-xs text-slate-500">Shares</label><input id="quantity" type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value) || 1))} className="mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-cyan-400" /></div>
+        <div className="rounded-xl bg-white/[.03] p-4"><div className="text-xs text-slate-500">Order value</div><div className="text-lg font-semibold mt-2">Rs. {Math.round(quantity * selectedQuote.price).toLocaleString('en-IN')}</div></div>
+        <div className="rounded-xl bg-white/[.03] p-4"><div className="text-xs text-slate-500">Simulated price effect</div><div className={`text-lg font-semibold mt-2 ${simulation.simulatedMove >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{simulation.simulatedMove >= 0 ? '+' : ''}{simulation.simulatedMove.toFixed(2)}%</div></div>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4 mt-4">
+        <div className="rounded-xl bg-white/[.03] p-4"><div className="text-xs text-slate-500">Current price</div><div className="text-xl font-semibold mt-2">Rs. {selectedQuote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
+        <div className="rounded-xl bg-white/[.03] p-4"><div className="text-xs text-slate-500">After simulated order</div><div className="text-xl font-semibold mt-2">Rs. {(selectedQuote.price * (1 + simulation.simulatedMove / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
+        <div className="rounded-xl bg-cyan-400/10 p-4"><div className="text-xs text-cyan-300">7-day demo estimate</div><div className="text-xl font-semibold mt-2">Rs. {simulation.predictedPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className="text-xs text-slate-500 mt-1">Trend + simulated order pressure</div></div>
+      </div>
+      <div className="mt-5 text-xs text-slate-500">The simulator uses the demo history trend plus a small capped hypothetical order-pressure factor. It does not predict the actual market or execute trades.</div>
+    </section>
 
     <h2 className="text-xl font-semibold mt-10">NSE Stocks</h2><div className="glass rounded-2xl mt-4 overflow-hidden"><div className="grid grid-cols-3 px-5 py-4 text-sm text-slate-500 border-b border-white/[.06]"><span>Stock</span><span>Price</span><span>Change</span></div>{quotes.map(quote => <button type="button" onClick={() => setSelected(quote.symbol)} key={quote.symbol} className="w-full grid grid-cols-3 px-5 py-4 text-left border-b border-white/[.04] last:border-0 hover:bg-white/[.03]"><div><div>{quote.name}</div><div className="text-xs text-slate-500 mt-1">{quote.symbol}</div></div><div>Rs. {quote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className={quote.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}>{quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%</div></button>)}</div><div className="mt-10 text-xs text-slate-600">Demo market data. Live backend will be connected later.</div>
   </main>
