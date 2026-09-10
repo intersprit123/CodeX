@@ -33,7 +33,8 @@ function getGreeting(hour: number) {
   if (hour < 5) return 'Good night, market watcher.'
   if (hour < 12) return 'Good morning, market watcher.'
   if (hour < 17) return 'Good afternoon, market watcher.'
-  return 'Good evening, market watcher.'
+  if (hour < 21) return 'Good evening, market watcher.'
+  return 'Good night, market watcher.'
 }
 
 function formatOverviewDate(date: Date) {
