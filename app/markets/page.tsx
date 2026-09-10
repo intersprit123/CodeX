@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState } from 'react'
 
@@ -34,25 +34,82 @@ function FakeChart({ values }: { values: number[] }) {
   const points = values.map((value, index) => {
     const x = pad + (index / (values.length - 1)) * (width - pad * 2)
     const y = height - pad - ((value - min) / range) * (height - pad * 2)
-    return `${x},${y}`
-  }).join(' ')
+    return { x, y, value }
+  })
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-72" role="img" aria-label="Demo 30-day price history chart">
-      <defs>
-        <linearGradient id="historyFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0, 1, 2, 3].map((row) => {
-        const y = pad + row * ((height - pad * 2) / 3)
-        return <line key={row} x1={pad} x2={width - pad} y1={y} y2={y} stroke="currentColor" className="text-white/[.06]" />
-      })}
-      <polyline points={`${pad},${height - pad} ${points} ${width - pad},${height - pad}`} fill="url(#historyFill)" className="text-cyan-400" stroke="none" />
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400" />
-      <circle cx={width - pad} cy={height - pad - ((values[values.length - 1] - min) / range) * (height - pad * 2)} r="6" fill="currentColor" className="text-cyan-300" />
-    </svg>
+    <div>
+      <div className="flex items-center gap-5 px-2 pb-3 text-xs">
+        <span className="inline-flex items-center gap-2 text-emerald-400">
+          <span className="h-2.5 w-6 rounded-full bg-emerald-400" /> Rising
+        </span>
+        <span className="inline-flex items-center gap-2 text-red-400">
+          <span className="h-0.5 w-6 border-t-2 border-dashed border-red-400" /> Falling
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-72" role="img" aria-label="Demo 30-day price history chart">
+        <defs>
+          <linearGradient id="historyFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {[0, 1, 2, 3].map((row) => {
+          const y = pad + row * ((height - pad * 2) / 3)
+          return <line key={row} x1={pad} x2={width - pad} y1={y} y2={y} stroke="currentColor" className="text-white/[.06]" />
+        })}
+
+        <polyline
+          points={`${pad},${height - pad} ${points.map((point) => `${point.x},${point.y}`).join(' ')} ${width - pad},${height - pad}`}
+          fill="url(#historyFill)"
+          className="text-cyan-400"
+          stroke="none"
+        />
+
+        {points.slice(0, -1).map((point, index) => {
+          const next = points[index + 1]
+          const rising = next.value >= point.value
+          return (
+            <line
+              key={`${index}-${point.value}`}
+              x1={point.x}
+              y1={point.y}
+              x2={next.x}
+              y2={next.y}
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+              className={rising ? 'text-emerald-400' : 'text-red-400'}
+              strokeDasharray={rising ? undefined : '8 6'}
+            />
+          )
+        })}
+
+        {points.map((point, index) => {
+          const rising = index === 0 || point.value >= points[index - 1].value
+          return (
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r="3.5"
+              fill="currentColor"
+              className={rising ? 'text-emerald-300' : 'text-red-300'}
+            />
+          )
+        })}
+
+        <circle
+          cx={points[points.length - 1].x}
+          cy={points[points.length - 1].y}
+          r="6"
+          fill="currentColor"
+          className="text-cyan-300"
+        />
+      </svg>
+    </div>
   )
 }
 
@@ -111,7 +168,7 @@ export default function Markets() {
           </div>
         </div>
 
-        <div className="mt-7 rounded-xl bg-black/20 p-3 md:p-5 text-cyan-400 overflow-hidden">
+        <div className="mt-7 rounded-xl bg-black/20 p-3 md:p-5 overflow-hidden">
           <FakeChart values={values} />
         </div>
 
