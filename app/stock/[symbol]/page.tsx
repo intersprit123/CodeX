@@ -4,31 +4,27 @@ import { MARKET_MODE } from '@/lib/market-mode'
 
 export function generateStaticParams() {
   return [
-    { symbol: 'RELIANCE' },
-    { symbol: 'TCS' },
-    { symbol: 'INFY' },
+    { symbol: 'RELIANCE' }, { symbol: 'TCS' }, { symbol: 'INFY' },
+    { symbol: 'NOVARTIND' }, { symbol: 'SHIVALIK' }, { symbol: 'GOACARBON' },
+    { symbol: 'SREEL' }, { symbol: 'BALPHARMA' }, { symbol: 'CFEL' },
+    { symbol: 'MEDICAPQ' }, { symbol: 'ANMOL' },
   ]
 }
 
 type StockState = { name:string; price:string; change:string; sector:string; pe:string; roe:string; growth:string; debt:string }
 
-type Fundamentals = { pe:number; roe:number; growth:number; debt:number }
-
 const demo:Record<string,StockState>={
   RELIANCE:{name:'Reliance Industries',price:'₹1,418.30',change:'+2.84%',sector:'Energy · Retail',pe:'24.1x',roe:'11.8%',growth:'8.4%',debt:'0.9x'},
   TCS:{name:'Tata Consultancy Services',price:'₹3,284.40',change:'+1.82%',sector:'IT Services',pe:'28.6x',roe:'49.2%',growth:'10.7%',debt:'0.1x'},
   INFY:{name:'Infosys',price:'₹1,492.20',change:'+1.72%',sector:'IT Services',pe:'25.4x',roe:'31.1%',growth:'8.9%',debt:'0.1x'},
-}
-
-const fundamentals:Record<string,Fundamentals>={
-  NOVARTIND:{pe:28.4,roe:18.2,growth:12.5,debt:0.4},
-  SHIVALIK:{pe:22.8,roe:16.4,growth:14.2,debt:0.7},
-  GOACARBON:{pe:18.6,roe:12.8,growth:9.7,debt:1.1},
-  SREEL:{pe:24.1,roe:14.6,growth:11.3,debt:0.8},
-  BALPHARMA:{pe:31.2,roe:10.9,growth:8.4,debt:1.5},
-  CFEL:{pe:19.7,roe:13.2,growth:10.6,debt:0.9},
-  MEDICAPQ:{pe:26.5,roe:11.8,growth:13.1,debt:0.6},
-  ANMOL:{pe:21.3,roe:15.1,growth:9.2,debt:0.5},
+  NOVARTIND:{name:'Novartis India Ltd',price:'₹2,186.40',change:'+20.00%',sector:'Pharmaceuticals',pe:'28.4x',roe:'18.2%',growth:'12.5%',debt:'0.4x'},
+  SHIVALIK:{name:'Shivalik Rasayan Ltd',price:'₹384.90',change:'+20.00%',sector:'Pharmaceuticals',pe:'22.8x',roe:'16.4%',growth:'14.2%',debt:'0.7x'},
+  GOACARBON:{name:'Goa Carbon Limited',price:'₹463.50',change:'+20.00%',sector:'Chemicals',pe:'18.6x',roe:'12.8%',growth:'9.7%',debt:'1.1x'},
+  SREEL:{name:'SREEL',price:'₹345.01',change:'+20.00%',sector:'Industrials',pe:'24.1x',roe:'14.6%',growth:'11.3%',debt:'0.8x'},
+  BALPHARMA:{name:'Bal Pharma Limited',price:'₹114.45',change:'+19.99%',sector:'Pharmaceuticals',pe:'31.2x',roe:'10.9%',growth:'8.4%',debt:'1.5x'},
+  CFEL:{name:'CFEL',price:'₹38.65',change:'+19.99%',sector:'Industrials',pe:'19.7x',roe:'13.2%',growth:'10.6%',debt:'0.9x'},
+  MEDICAPQ:{name:'MEDICAPQ',price:'₹30.74',change:'+19.98%',sector:'Healthcare',pe:'26.5x',roe:'11.8%',growth:'13.1%',debt:'0.6x'},
+  ANMOL:{name:'Anmol India Ltd',price:'₹13.63',change:'+19.77%',sector:'Trading',pe:'21.3x',roe:'15.1%',growth:'9.2%',debt:'0.5x'},
 }
 
 const liveMeta:Record<string,{name:string;sector:string}>={RELIANCE:{name:'Reliance Industries',sector:'Energy · Retail'},TCS:{name:'Tata Consultancy Services',sector:'IT Services'},INFY:{name:'Infosys',sector:'IT Services'},HDFCBANK:{name:'HDFC Bank',sector:'Financials'},ICICIBANK:{name:'ICICI Bank',sector:'Financials'},BHARTIARTL:{name:'Bharti Airtel',sector:'Telecom'},LT:{name:'Larsen & Toubro',sector:'Industrials'},ITC:{name:'ITC',sector:'Consumer'}}
@@ -36,17 +32,7 @@ const liveMeta:Record<string,{name:string;sector:string}>={RELIANCE:{name:'Relia
 export default async function StockPage({params}:{params:Promise<{symbol:string}>}){
   const{symbol}=await params
   const key=symbol.toUpperCase()
-  const f=fundamentals[key]
-  const fallback:StockState=demo[key]||{
-    name:liveMeta[key]?.name||key,
-    price:'—',
-    change:'',
-    sector:liveMeta[key]?.sector||'NSE · Equity',
-    pe:f?`${f.pe.toFixed(1)}x`:'—',
-    roe:f?`${f.roe.toFixed(1)}%`:'—',
-    growth:f?`${f.growth.toFixed(1)}%`:'—',
-    debt:f?`${f.debt.toFixed(1)}x`:'—'
-  }
+  const fallback:StockState=demo[key]||{name:liveMeta[key]?.name||key,price:'—',change:'',sector:liveMeta[key]?.sector||'NSE · Equity',pe:'—',roe:'—',growth:'—',debt:'—'}
   let s:StockState={...fallback}
   let liveQuote=false
 
@@ -57,11 +43,9 @@ export default async function StockPage({params}:{params:Promise<{symbol:string}
       if(q?.close){
         s={...s,name:q.name||s.name,price:`${q.currency==='INR'?'₹':q.currency+' '}${Number(q.close).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`,change:`${Number(q.percent_change||0)>=0?'+':''}${Number(q.percent_change||0).toFixed(2)}%`}
         liveQuote=true
-      }else{
-        s={...s,price:'—',change:''}
       }
     }catch{
-      s={...s,price:'—',change:''}
+      // Keep demo quote if live provider lookup fails.
     }
   }
 
