@@ -3,14 +3,14 @@
 import { useMemo, useState } from 'react'
 
 const quotes = [
-  { symbol: 'NOVARTIND', name: 'Novartis India Ltd', price: 2186.40, changePercent: 20, currency: 'INR' },
-  { symbol: 'SHIVALIK', name: 'Shivalik Rasayan Ltd', price: 384.90, changePercent: 20, currency: 'INR' },
-  { symbol: 'GOACARBON', name: 'Goa Carbon Limited', price: 463.50, changePercent: 20, currency: 'INR' },
-  { symbol: 'SREEL', name: 'SREEL', price: 345.01, changePercent: 20, currency: 'INR' },
-  { symbol: 'BALPHARMA', name: 'Bal Pharma Limited', price: 114.45, changePercent: 19.99, currency: 'INR' },
-  { symbol: 'CFEL', name: 'CFEL', price: 38.65, changePercent: 19.99, currency: 'INR' },
-  { symbol: 'MEDICAPQ', name: 'MEDICAPQ', price: 30.74, changePercent: 19.98, currency: 'INR' },
-  { symbol: 'ANMOL', name: 'Anmol India Ltd', price: 13.63, changePercent: 19.77, currency: 'INR' },
+  { symbol: 'NOVARTIND', name: 'Novartis India Ltd', price: 2186.40, changePercent: 20, currency: 'INR', pe: 28.4, roe: 18.2, growth: 12.5, debt: 0.4 },
+  { symbol: 'SHIVALIK', name: 'Shivalik Rasayan Ltd', price: 384.90, changePercent: 20, currency: 'INR', pe: 22.8, roe: 16.4, growth: 14.2, debt: 0.7 },
+  { symbol: 'GOACARBON', name: 'Goa Carbon Limited', price: 463.50, changePercent: 20, currency: 'INR', pe: 18.6, roe: 12.8, growth: 9.7, debt: 1.1 },
+  { symbol: 'SREEL', name: 'SREEL', price: 345.01, changePercent: 20, currency: 'INR', pe: 24.1, roe: 14.6, growth: 11.3, debt: 0.8 },
+  { symbol: 'BALPHARMA', name: 'Bal Pharma Limited', price: 114.45, changePercent: 19.99, currency: 'INR', pe: 31.2, roe: 10.9, growth: 8.4, debt: 1.5 },
+  { symbol: 'CFEL', name: 'CFEL', price: 38.65, changePercent: 19.99, currency: 'INR', pe: 19.7, roe: 13.2, growth: 10.6, debt: 0.9 },
+  { symbol: 'MEDICAPQ', name: 'MEDICAPQ', price: 30.74, changePercent: 19.98, currency: 'INR', pe: 26.5, roe: 11.8, growth: 13.1, debt: 0.6 },
+  { symbol: 'ANMOL', name: 'Anmol India Ltd', price: 13.63, changePercent: 19.77, currency: 'INR', pe: 21.3, roe: 15.1, growth: 9.2, debt: 0.5 },
 ]
 
 const history: Record<string, number[]> = {
@@ -94,7 +94,38 @@ export default function Markets() {
       <div className="flex flex-wrap gap-2 mt-4"><button onClick={() => addToWatchlist(quote.symbol)} className="px-3 py-2 rounded-lg bg-white/5 text-xs hover:bg-white/10">☆ Watchlist</button><button onClick={() => addToPortfolio(quote.symbol, quote.price)} className="px-3 py-2 rounded-lg bg-white/5 text-xs hover:bg-white/10">+ Portfolio</button><button onClick={() => createAlert(quote.symbol)} className="px-3 py-2 rounded-lg bg-white/5 text-xs hover:bg-white/10">⚡ Alert</button><a href={`/stock/${quote.symbol}`} className="px-3 py-2 rounded-lg bg-cyan-400/10 text-cyan-300 text-xs">Details →</a></div>
     </div>)}</div>
 
-    <section className="glass rounded-2xl mt-10 p-5 md:p-7"><div className="flex flex-col md:flex-row md:items-start justify-between gap-4"><div><div className="text-cyan-400 text-xs font-medium tracking-wider">PRICE HISTORY</div><h2 className="text-2xl font-semibold mt-2">{selectedQuote.name}</h2><p className="text-slate-500 mt-1">{selectedQuote.symbol} · 30-day history</p></div><div className="text-right"><div className="text-2xl font-semibold">Rs. {selectedQuote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className="text-emerald-400 text-sm mt-1">+{selectedQuote.changePercent.toFixed(2)}%</div></div></div><div className="mt-7 rounded-xl bg-black/20 p-3 md:p-5 overflow-hidden"><FakeChart values={values} /></div><div className="grid grid-cols-3 gap-3 mt-5 text-sm"><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Period</div><div className="mt-1 font-medium">30 days</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Low</div><div className="mt-1 font-medium">Rs. {low.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">High</div><div className="mt-1 font-medium">Rs. {high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div></div><div className="mt-5 text-xs text-amber-300/80">DEMO HISTORY · Sample data for UI preview only.</div></section>
+    <section className="glass rounded-2xl mt-10 p-5 md:p-7"><div className="flex flex-col md:flex-row md:items-start justify-between gap-4"><div><div className="text-cyan-400 text-xs font-medium tracking-wider">PRICE HISTORY</div><h2 className="text-2xl font-semibold mt-2">{selectedQuote.name}</h2><p className="text-slate-500 mt-1">{selectedQuote.symbol} · 30-day history</p></div><div className="text-right"><div className="text-2xl font-semibold">Rs. {selectedQuote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className="text-emerald-400 text-sm mt-1">+{selectedQuote.changePercent.toFixed(2)}%</div></div></div><div className="mt-7 rounded-xl bg-black/20 p-3 md:p-5 overflow-hidden">
+  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div className="rounded-xl bg-white/[.04] p-4">
+      <div className="text-xs text-slate-500">Price</div>
+      <div className="text-lg font-semibold mt-1">
+        Rs. {selectedQuote.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </div>
+    </div>
+
+    <div className="rounded-xl bg-white/[.04] p-4">
+      <div className="text-xs text-slate-500">P/E</div>
+      <div className="text-lg font-semibold mt-1">{selectedQuote.pe.toFixed(1)}x</div>
+    </div>
+
+    <div className="rounded-xl bg-white/[.04] p-4">
+      <div className="text-xs text-slate-500">ROE</div>
+      <div className="text-lg font-semibold mt-1">{selectedQuote.roe.toFixed(1)}%</div>
+    </div>
+
+    <div className="rounded-xl bg-white/[.04] p-4">
+      <div className="text-xs text-slate-500">Growth</div>
+      <div className="text-lg font-semibold mt-1">{selectedQuote.growth.toFixed(1)}%</div>
+    </div>
+
+    <div className="rounded-xl bg-white/[.04] p-4">
+      <div className="text-xs text-slate-500">Debt</div>
+      <div className="text-lg font-semibold mt-1">{selectedQuote.debt.toFixed(1)}x</div>
+    </div>
+  </div>
+
+  <FakeChart values={values} />
+</div><div className="grid grid-cols-3 gap-3 mt-5 text-sm"><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Period</div><div className="mt-1 font-medium">30 days</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">Low</div><div className="mt-1 font-medium">Rs. {low.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div><div className="rounded-xl bg-white/[.03] p-4"><div className="text-slate-500">High</div><div className="mt-1 font-medium">Rs. {high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div></div></div><div className="mt-5 text-xs text-amber-300/80">DEMO HISTORY · Sample data for UI preview only.</div></section>
 
     <section className="glass rounded-2xl mt-6 p-5 md:p-7">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
